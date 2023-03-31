@@ -1,2 +1,10 @@
 __pycache__
 __pycache__/*
+videos/*
+images/*
+data/*
+lora/*
+videos
+images
+data
+lora
