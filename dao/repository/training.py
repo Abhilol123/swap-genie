@@ -3,7 +3,7 @@ import torch
 from cog import BasePredictor, Input, Path
 from lora_diffusion.cli_lora_pti import train as lora_train
 
-from training_utils import (
+from utils.training_utils import (
     random_seed,
     clean_directories,
     extract_zip_and_flatten,
