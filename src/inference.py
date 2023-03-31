@@ -26,6 +26,7 @@ class InferencePipeline:
         self.clip_interrogator = Interrogator(
             Config(clip_model_name="ViT-L-14/openai"))
         self.target_text_prompt = "face with hair"
+        self.negative_prompt = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality"
         return None
 
     def get_face_mask(self, image) -> Image:
@@ -48,6 +49,6 @@ class InferencePipeline:
             image=image,
             text=self.target_text_prompt,
             prompt=prompt.replace("man", pronoun),
-            negative_prompt="longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality"
+            negative_prompt=self.negative_prompt
         ).images[0]
         return inference_image
