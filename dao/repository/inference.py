@@ -52,3 +52,5 @@ class InferencePipeline:
             negative_prompt=self.negative_prompt
         ).images[0]
         return inference_image
+
+inferencePipeline = InferencePipeline()
