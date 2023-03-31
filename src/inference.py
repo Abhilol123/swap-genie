@@ -20,42 +20,34 @@ class InferencePipeline:
             segmentation_model=self.model,
             segmentation_processor=self.processor
         )
-        self.ci = Interrogator(Config(clip_model_name="ViT-L-14/openai"))
+        self.diffusion_pipe = self.diffusion_pipe.to("cuda")
+        self.diffusion_pipe.enable_xformers_memory_efficient_attention()
+        self.diffusion_pipe.safety_checker = lambda images, **kwargs: images, False
+        self.clip_interrogator = Interrogator(
+            Config(clip_model_name="ViT-L-14/openai"))
+        self.target_text_prompt = "face with hair"
         return None
 
+    def get_face_mask(self, image) -> Image:
+        with torch.no_grad():
+            inputs = self.processor(text=self.target_text_prompt, images=image,
+                                    padding="max_length", return_tensors="pt").to("cuda")
+            outputs = self.model(**inputs)
+            mask = torch.sigmoid(outputs.logits).cpu(
+            ).detach().unsqueeze(-1).numpy()
+            mask_pil = Image.fromarray(
+                np.uint8(cm.gist_earth(mask)*255), mode='RGBA')
+            return mask_pil
 
-
-pipe = pipe.to("cuda")
-pipe.enable_xformers_memory_efficient_attention()
-patch_pipe(pipe, f"./Cathy.safetensors")
-tune_lora_scale(pipe.unet, 0.6)
-
-image = Image.open("input.png").convert('RGB').resize((512, 512))
-inferred_prompt = ci.interrogate(image)
-print(inferred_prompt)
-
-text = "face with hair"
-prompt = f"<s1><s2> {inferred_prompt}"
-
-with torch.no_grad():
-    inputs = processor(text=text, images=image,
-                       padding="max_length", return_tensors="pt").to("cuda")
-    outputs = model(**inputs)
-    mask = torch.sigmoid(outputs.logits).cpu().detach().unsqueeze(-1).numpy()
-    mask_pil = Image.fromarray(np.uint8(cm.gist_earth(mask)*255), mode='RGBA')
-    mask_pil.save("mask.png")
-
-
-def dummy(images, **kwargs):
-    return images, False
-
-
-pipe.safety_checker = dummy
-
-image = pipe(
-    image=image,
-    text=text,
-    prompt=prompt,
-    negative_prompt="longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality"
-).images[0]
-image.save("output.png")
+    def inference(self, model_name, image, pronoun="man"):
+        patch_pipe(self.diffusion_pipe, f"./lora/{model_name}.safetensors")
+        tune_lora_scale(self.diffusion_pipe.unet, 0.6)
+        inferred_prompt = self.clip_interrogator.interrogate(image)
+        prompt = f"<s1><s2> {inferred_prompt}"
+        inference_image = self.diffusion_pipe(
+            image=image,
+            text=self.target_text_prompt,
+            prompt=prompt.replace("man", pronoun),
+            negative_prompt="longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer digits, cropped, worst quality, low quality"
+        ).images[0]
+        return inference_image
